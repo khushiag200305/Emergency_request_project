@@ -314,7 +314,7 @@ def operator_dashboard():
            ORDER BY er.severity_level DESC, er.request_time ASC"""
     )
 
-    # Query 11: Active dispatches with vehicle and staff info
+        # Query 11: Active dispatches with latest dispatch row per request
     active = query(
         """SELECT er.request_id, er.emergency_type, er.location,
                   er.severity_level, er.status, er.request_time,
@@ -323,7 +323,12 @@ def operator_dashboard():
                   dr.dispatch_id, dr.dispatch_time, dr.response_time
            FROM Emergency_Request er
            JOIN Users u ON er.user_id = u.user_id
-           LEFT JOIN Dispatch_Record dr ON er.request_id = dr.request_id
+            LEFT JOIN Dispatch_Record dr
+                ON dr.dispatch_id = (
+                    SELECT MAX(d2.dispatch_id)
+                    FROM Dispatch_Record d2
+                    WHERE d2.request_id = er.request_id
+                )
            LEFT JOIN Emergency_Vehicle ev ON dr.vehicle_id = ev.vehicle_id
            WHERE er.status IN ('Assigned', 'In Progress')
            ORDER BY er.severity_level DESC"""
@@ -360,12 +365,7 @@ def operator_dashboard():
 @login_required
 @role_required("Operator")
 def assign_vehicle(req_id):
-    """
-    Two-phase vehicle assignment:
-      Phase 1: Try CALL AssignVehicle stored procedure.
-      Phase 2: If SP fails/missing, do full assignment with direct SQL.
-    This guarantees assignment works regardless of SP availability.
-    """
+    """Assign a correctly typed available vehicle to a pending request."""
     operator_id = session["user_id"]
     conn = get_db()
     msg = ""
@@ -385,43 +385,59 @@ def assign_vehicle(req_id):
             conn.close()
             return redirect(url_for("operator_dashboard"))
         etype = req_row[1]
-
-        # Find best available vehicle (match service type to emergency type)
-        cur.execute(
-            """SELECT ev.vehicle_id FROM Emergency_Vehicle ev
-               JOIN Service_Center sc ON ev.center_id = sc.center_id
-               WHERE ev.availability = 'Available'
-               ORDER BY
-                 CASE WHEN sc.service_type = %s THEN 0 ELSE 1 END,
-                 ev.vehicle_id ASC
-               LIMIT 1""",
-            (etype,)
-        )
-        v_row = cur.fetchone()
-        if not v_row:
-            flash("❌ No available vehicles right now. Try again shortly.", "danger")
+        service_map = {
+            "Medical": ["Ambulance"],
+            "Accident": ["Ambulance", "Police"],
+            "Fire": ["Fire"],
+            "Crime": ["Police"],
+        }
+        required_services = service_map.get(etype)
+        if not required_services:
+            flash(f"❌ Unsupported emergency type: {etype}", "danger")
             cur.close()
             conn.close()
             return redirect(url_for("operator_dashboard"))
-        vehicle_id = v_row[0]
 
-        # ── Phase 1: Try stored procedure ──
-        sp_success = False
-        try:
-            cur.execute("SET @sp_msg = ''")
-            cur.execute(f"CALL AssignVehicle({req_id}, @sp_msg)")
-            conn.commit()
-            cur.execute("SELECT @sp_msg")
-            sp_row = cur.fetchone()
-            sp_msg = str(sp_row[0]) if sp_row and sp_row[0] else ""
-            if "SUCCESS" in sp_msg.upper():
-                sp_success = True
-                msg = sp_msg
-        except Exception:
-            conn.rollback()   # SP failed — fall through to Phase 2
+        # For Accident, this intentionally selects two vehicles: one Ambulance and one Police.
+        selected_vehicles = []
+        selected_ids = set()
+        for required_service in required_services:
+            cur.execute(
+                """SELECT ev.vehicle_id FROM Emergency_Vehicle ev
+                   JOIN Service_Center sc ON ev.center_id = sc.center_id
+                   WHERE ev.availability = 'Available' AND sc.service_type = %s
+                     AND ev.vehicle_id NOT IN (
+                         SELECT dr.vehicle_id
+                         FROM Dispatch_Record dr
+                         WHERE dr.request_id = %s
+                     )
+                   ORDER BY
+                     CASE
+                       WHEN %s = 'Police' AND ev.vehicle_type = 'Police Van' THEN 0
+                       ELSE 1
+                     END,
+                     ev.vehicle_id ASC
+                   LIMIT 1""",
+                (required_service, req_id, required_service)
+            )
+            v_row = cur.fetchone()
+            if not v_row:
+                flash(f"❌ No available {required_service} vehicles right now.", "danger")
+                cur.close()
+                conn.close()
+                return redirect(url_for("operator_dashboard"))
 
-        # ── Phase 2: Direct SQL assignment ──
-        if not sp_success:
+            vehicle_id = v_row[0]
+            if vehicle_id in selected_ids:
+                flash("❌ Could not reserve distinct vehicles for this request.", "danger")
+                cur.close()
+                conn.close()
+                return redirect(url_for("operator_dashboard"))
+            selected_ids.add(vehicle_id)
+            selected_vehicles.append((required_service, vehicle_id))
+
+        # Use direct SQL assignment so selected vehicle types are always honored.
+        for _, vehicle_id in selected_vehicles:
             cur.execute(
                 """INSERT INTO Dispatch_Record
                        (request_id, vehicle_id, operator_id, dispatch_time, status)
@@ -432,21 +448,15 @@ def assign_vehicle(req_id):
                 "UPDATE Emergency_Vehicle SET availability='Busy' WHERE vehicle_id=%s",
                 (vehicle_id,)
             )
-            cur.execute(
-                "UPDATE Emergency_Request SET status='Assigned' WHERE request_id=%s",
-                (req_id,)
-            )
-            conn.commit()
-            msg = f"SUCCESS — Vehicle #{vehicle_id} assigned directly."
-        else:
-            # Patch operator_id if SP left it NULL
-            cur.execute(
-                """UPDATE Dispatch_Record SET operator_id=%s
-                   WHERE request_id=%s AND operator_id IS NULL
-                   ORDER BY dispatch_id DESC LIMIT 1""",
-                (operator_id, req_id)
-            )
-            conn.commit()
+        cur.execute(
+            "UPDATE Emergency_Request SET status='Assigned' WHERE request_id=%s",
+            (req_id,)
+        )
+        conn.commit()
+        assigned_summary = ", ".join(
+            [f"{svc} #{vid}" for svc, vid in selected_vehicles]
+        )
+        msg = f"SUCCESS — Vehicles assigned: {assigned_summary}."
 
         # ── Auto-assign staff: try SP, then direct SQL fallback ──
         staff_count = 0
@@ -535,17 +545,74 @@ def mark_in_progress(dispatch_id):
 @login_required
 @role_required("Operator")
 def complete_dispatch(dispatch_id):
-    """Call CompleteEmergency stored procedure."""
+    """Complete a dispatch via SP, with direct SQL fallback if SP is unavailable."""
     conn = get_db()
     msg = ""
     try:
         cur = conn.cursor()
-        cur.execute("SET @out_msg = ''")
-        cur.execute(f"CALL CompleteEmergency({dispatch_id}, @out_msg)")
-        conn.commit()
-        cur.execute("SELECT @out_msg AS msg")
+        # Resolve request for clicked dispatch.
+        cur.execute(
+            "SELECT request_id FROM Dispatch_Record WHERE dispatch_id=%s",
+            (dispatch_id,)
+        )
         row = cur.fetchone()
-        msg = row[0] if row else "Unknown result"
+        if not row:
+            msg = "ERROR: Dispatch not found"
+            cur.close()
+            return redirect(url_for("operator_dashboard"))
+
+        request_id = row[0]
+
+        # Always complete the latest open dispatch for this request.
+        cur.execute(
+            """SELECT dispatch_id, vehicle_id
+               FROM Dispatch_Record
+               WHERE request_id=%s AND status IN ('Assigned','In Progress')
+               ORDER BY dispatch_id DESC
+               LIMIT 1""",
+            (request_id,)
+        )
+        open_row = cur.fetchone()
+
+        if not open_row:
+            # No open dispatch left; make sure request state reflects completion.
+            cur.execute(
+                "UPDATE Emergency_Request SET status='Completed' WHERE request_id=%s",
+                (request_id,)
+            )
+            conn.commit()
+            msg = "SUCCESS: Dispatch already completed"
+        else:
+            target_dispatch_id, vehicle_id = open_row
+            cur.execute(
+                """UPDATE Dispatch_Record
+                   SET status='Completed',
+                       completion_time=NOW(),
+                       response_time=COALESCE(
+                           response_time,
+                           TIMESTAMPDIFF(MINUTE, dispatch_time, IFNULL(arrival_time, NOW()))
+                       )
+                   WHERE dispatch_id=%s""",
+                (target_dispatch_id,)
+            )
+            cur.execute(
+                "UPDATE Emergency_Request SET status='Completed' WHERE request_id=%s",
+                (request_id,)
+            )
+            cur.execute(
+                "UPDATE Emergency_Vehicle SET availability='Available' WHERE vehicle_id=%s",
+                (vehicle_id,)
+            )
+            cur.execute(
+                """UPDATE Service_Staff ss
+                   JOIN Staff_Assignment sa ON ss.staff_id = sa.staff_id
+                   SET ss.availability='Available'
+                   WHERE sa.request_id=%s""",
+                (request_id,)
+            )
+            conn.commit()
+            msg = "SUCCESS: Dispatch completed"
+
         cur.close()
     except Error as e:
         msg = f"ERROR: {e}"

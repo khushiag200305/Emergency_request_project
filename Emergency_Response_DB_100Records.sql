@@ -1267,7 +1267,7 @@ BEGIN
         SET svc_type = CASE req_type
             WHEN 'Medical'  THEN 'Ambulance'
             WHEN 'Fire'     THEN 'Fire'
-            ELSE                 'Police'
+            WHEN 'Crime'    THEN 'Police'
         END;
 
         SELECT ev.vehicle_id INTO v_id
