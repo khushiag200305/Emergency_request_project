@@ -18,22 +18,27 @@ Fixes & Additions:
 
 from flask import (Flask, render_template, request, redirect,
                    url_for, session, flash, jsonify)
+import os
 import mysql.connector
 from mysql.connector import Error
 from functools import wraps
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ─────────────────────────────────────────────
 # App Configuration
 # ─────────────────────────────────────────────
 app = Flask(__name__)
-app.secret_key = "erts_super_secret_key_2024"
+
+app.secret_key = os.getenv("SECRET_KEY", "erts_super_secret_key_2024")
 
 DB_CONFIG = {
-    "host":     "127.0.0.1",
-    "user":     "root",
-    "password": "Simba@1504",   # ← Change this
-    "database": "Emergency_Service_DB",
-    "port":     3306,
+    "host":     os.getenv("MYSQL_HOST", "127.0.0.1"),
+    "user":     os.getenv("MYSQL_USER", "root"),
+    "password": os.getenv("MYSQL_PASSWORD", "Simba@1504"),
+    "database": os.getenv("MYSQL_DATABASE", "Emergency_Service_DB"),
+    "port":     int(os.getenv("MYSQL_PORT", "3306")),
 }
 
 # ─────────────────────────────────────────────
