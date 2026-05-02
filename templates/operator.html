@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}Operator Dashboard — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-headset me-2"></i>Operator Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ── NOTIFICATIONS BANNER ── -->
+{% if notifications %}
+<div class="alert alert-warning alert-dismissible fade show d-flex align-items-center gap-2 mb-4" role="alert">
+  <i class="fa-solid fa-bell fa-lg"></i>
+  <div><strong>{{ notifications | length }} alert{{ 's' if notifications|length > 1 }}:</strong> {{ notifications[0].message }}</div>
+  <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<!-- ── STATS ── -->
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="kpi-card kpi-orange">
+      <div class="kpi-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ pending | length }}</div><div class="kpi-label">Pending Requests</div></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon"><i class="fa-solid fa-truck-fast"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ active | length }}</div><div class="kpi-label">Active Dispatches</div></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="kpi-card kpi-teal">
+      <div class="kpi-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ available_vehicles | length }}</div><div class="kpi-label">Vehicles Ready</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PENDING REQUESTS ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header d-flex justify-content-between align-items-center">
+    <h5><i class="fa-solid fa-siren me-2 text-danger"></i>Pending Requests
+      <span class="badge bg-danger ms-2">{{ pending | length }}</span>
+    </h5>
+    <span class="text-muted small">Sorted by severity · highest first</span>
+  </div>
+  <div class="panel-body p-0">
+    {% if pending %}
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr>
+            <th>#ID</th><th>Type</th><th>Description</th><th>Location</th>
+            <th>Severity</th><th>Reported By</th><th>Caller Details</th><th>Time</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in pending %}
+          <tr class="{% if r.severity_level == 5 %}row-critical{% endif %}">
+            <td><span class="req-id">#{{ r.request_id }}</span></td>
+            <td>
+              <span class="badge-type badge-{{ r.emergency_type | lower }}">
+                {% if r.emergency_type == 'Medical' %}<i class="fa-solid fa-kit-medical"></i>
+                {% elif r.emergency_type == 'Fire' %}<i class="fa-solid fa-fire-flame-curved"></i>
+                {% elif r.emergency_type == 'Crime' %}<i class="fa-solid fa-user-shield"></i>
+                {% else %}<i class="fa-solid fa-car-burst"></i>{% endif %}
+                {{ r.emergency_type }}
+              </span>
+            </td>
+            <td class="text-truncate desc-cell" style="max-width:150px">{{ r.description }}</td>
+            <td>{{ r.location }}</td>
+            <td>
+              <div class="sev-pills">
+                {% for i in range(1, 6) %}
+                  <span class="sev-pip {% if i <= r.severity_level %}sev-pip-{{ r.severity_level }}{% endif %}"></span>
+                {% endfor %}
+                <span class="ms-1 small fw-semibold">{{ r.severity_level }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="citizen-info">
+                <span class="citizen-name">{{ r.reported_by }}</span>
+                <span class="citizen-phone">{{ r.phone_number }}</span>
+              </div>
+            </td>
+            <td class="small">
+              {% if r.caller_name or r.caller_phone %}
+                <span class="text-info">{{ r.caller_name or '—' }}</span><br>
+                <span class="text-muted">{{ r.caller_phone or '' }}</span><br>
+                <span class="badge bg-dark text-muted">{{ r.relation_to_victim or '' }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">{{ r.request_time.strftime('%d %b %H:%M') if r.request_time }}</td>
+            <td>
+              <div class="d-flex flex-column gap-1">
+                <form method="POST" action="{{ url_for('assign_vehicle', req_id=r.request_id) }}"
+                      onsubmit="return confirmAssign({{ r.request_id }})">
+                  <button type="submit" class="btn btn-assign btn-sm w-100">
+                    <i class="fa-solid fa-truck-medical me-1"></i>Assign Vehicle
+                  </button>
+                </form>
+                <form method="POST" action="{{ url_for('operator_cancel', req_id=r.request_id) }}"
+                      onsubmit="return confirm('Cancel this request?')">
+                  <button type="submit" class="btn btn-sm btn-outline-danger w-100">
+                    <i class="fa-solid fa-xmark me-1"></i>Cancel
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="fa-solid fa-circle-check fa-3x text-success mb-3"></i>
+      <h6>All clear! No pending requests.</h6>
+      <p class="text-muted">All emergencies have been dispatched.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── ACTIVE DISPATCHES ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header d-flex justify-content-between align-items-center">
+    <h5><i class="fa-solid fa-truck-fast me-2 text-primary"></i>Active Dispatches
+      <span class="badge bg-primary ms-2">{{ active | length }}</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    {% if active %}
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr>
+            <th>#ID</th><th>Type</th><th>Location</th><th>Status</th>
+            <th>Vehicle</th><th>Driver</th><th>Dispatched</th><th>Resp. Time</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in active %}
+          <tr>
+            <td><span class="req-id">#{{ r.request_id }}</span></td>
+            <td><span class="badge-type badge-{{ r.emergency_type | lower }}">{{ r.emergency_type }}</span></td>
+            <td>{{ r.location }}</td>
+            <td><span class="status-badge status-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span></td>
+            <td>
+              {% if r.vehicle_type %}
+                <span class="vehicle-chip">
+                  <i class="fa-solid fa-truck-medical me-1"></i>{{ r.vehicle_type }}<br/>
+                  <small class="text-muted">{{ r.license_plate }}</small>
+                </span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td>{{ r.driver_name or '—' }}</td>
+            <td class="text-muted small">{{ r.dispatch_time.strftime('%d %b %H:%M') if r.dispatch_time }}</td>
+            <td>
+              {% if r.response_time %}
+                <span class="resp-time-badge">{{ r.response_time }} min</span>
+              {% else %}<span class="text-muted small">En route…</span>{% endif %}
+            </td>
+            <td>
+              <div class="d-flex flex-column gap-1">
+                {% if r.status == 'Assigned' and r.dispatch_id %}
+                <form method="POST" action="{{ url_for('mark_in_progress', dispatch_id=r.dispatch_id) }}">
+                  <button type="submit" class="btn btn-sm btn-outline-info w-100">
+                    <i class="fa-solid fa-location-arrow me-1"></i>In Progress
+                  </button>
+                </form>
+                {% endif %}
+                {% if r.dispatch_id %}
+                <form method="POST" action="{{ url_for('complete_dispatch', dispatch_id=r.dispatch_id) }}"
+                      onsubmit="return confirm('Mark this dispatch as Completed?')">
+                  <button type="submit" class="btn btn-sm btn-outline-success w-100">
+                    <i class="fa-solid fa-circle-check me-1"></i>Complete
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="fa-solid fa-truck-fast fa-3x text-muted mb-3"></i>
+      <p class="text-muted">No active dispatches right now.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── AVAILABLE VEHICLES ── -->
+<div class="card-panel">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-garage-open me-2 text-teal"></i>Available Vehicles Fleet</h5>
+  </div>
+  <div class="panel-body">
+    <div class="row g-3">
+      {% for v in available_vehicles %}
+      <div class="col-xl-4 col-md-6">
+        <div class="vehicle-card">
+          <div class="vehicle-card-header">
+            <div class="vehicle-icon">
+              {% if 'Ambulance' in v.vehicle_type %}<i class="fa-solid fa-truck-medical"></i>
+              {% elif 'Fire' in v.vehicle_type %}<i class="fa-solid fa-fire-extinguisher"></i>
+              {% else %}<i class="fa-solid fa-car-side"></i>{% endif %}
+            </div>
+            <div class="vehicle-info">
+              <div class="vehicle-type">{{ v.vehicle_type }}</div>
+              <div class="vehicle-plate">{{ v.license_plate }}</div>
+            </div>
+            <div class="vehicle-avail available">
+              <i class="fa-solid fa-circle-dot"></i> Available
+            </div>
+          </div>
+          <div class="vehicle-card-body">
+            <div class="vehicle-detail"><i class="fa-solid fa-user me-2"></i>{{ v.driver_name }}</div>
+            <div class="vehicle-detail"><i class="fa-solid fa-building me-2"></i>{{ v.center_name }}</div>
+            <div class="vehicle-detail"><i class="fa-solid fa-location-dot me-2"></i>{{ v.area }}</div>
+            <div class="vehicle-detail text-muted small"><i class="fa-solid fa-tag me-2"></i>{{ v.service_type }}</div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmAssign(reqId) {
+  return confirm(`⚠️ Assign best available vehicle to Emergency #${reqId}?\n\nCalls: CALL AssignVehicle(${reqId}, @msg)`);
+}
+</script>
+{% endblock %}

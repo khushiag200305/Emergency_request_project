@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Notifications — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-bell me-2"></i>Notification Center{% endblock %}
+
+{% block content %}
+
+<!-- Summary by Type (GROUP BY query) -->
+<div class="row g-4 mb-4">
+  {% for s in notif_summary %}
+  <div class="col-md-3">
+    <div class="kpi-card {% if s.type == 'Alert' %}kpi-orange{% elif s.type == 'Info' %}kpi-blue{% elif s.type == 'Success' %}kpi-teal{% else %}kpi-purple{% endif %}">
+      <div class="kpi-icon">
+        {% if s.type == 'Alert' %}<i class="fa-solid fa-triangle-exclamation"></i>
+        {% elif s.type == 'Info' %}<i class="fa-solid fa-circle-info"></i>
+        {% elif s.type == 'Success' %}<i class="fa-solid fa-circle-check"></i>
+        {% else %}<i class="fa-solid fa-bell"></i>{% endif %}
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ s.total }}</div>
+        <div class="kpi-label">{{ s.type }} Notifications</div>
+        <div class="kpi-sub">{{ s.unread }} unread</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-4">
+  <!-- Send Notification Form -->
+  <div class="col-lg-4">
+    <div class="card-panel">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-paper-plane me-2 text-primary"></i>Send Notification</h5>
+        <p class="text-muted small mb-0">Broadcast a message to any user.</p>
+      </div>
+      <div class="panel-body">
+        <form method="POST" action="{{ url_for('admin_send_notification') }}">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">User ID <span class="text-danger">*</span></label>
+            <input type="number" name="user_id" class="form-control" placeholder="e.g. 1" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Type</label>
+            <select name="type" class="form-select">
+              <option value="Info">Info</option>
+              <option value="Alert">Alert</option>
+              <option value="Success">Success</option>
+              <option value="Warning">Warning</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Message <span class="text-danger">*</span></label>
+            <textarea name="message" class="form-control" rows="3"
+                      placeholder="Enter notification message…" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="fa-solid fa-paper-plane me-2"></i>Send Notification
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Notifications Table -->
+  <div class="col-lg-8">
+    <div class="card-panel">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-list me-2 text-info"></i>All Notifications
+          <span class="badge bg-info text-dark ms-2">{{ all_notifs | length }}</span>
+        </h5>
+      </div>
+      <div class="panel-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover erts-table mb-0">
+            <thead>
+              <tr><th>#</th><th>Recipient</th><th>Role</th><th>Type</th><th>Message</th><th>Status</th><th>Time</th></tr>
+            </thead>
+            <tbody>
+              {% for n in all_notifs %}
+              <tr class="{% if n.status == 'Unread' %}table-active{% endif %}">
+                <td><span class="req-id">{{ n.notification_id }}</span></td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="mini-avatar">{{ n.recipient[0] }}</div>
+                    {{ n.recipient }}
+                  </div>
+                </td>
+                <td><span class="user-badge badge-{{ n.role | lower }}">{{ n.role }}</span></td>
+                <td>
+                  <span class="badge {% if n.type == 'Alert' %}bg-warning text-dark{% elif n.type == 'Success' %}bg-success{% elif n.type == 'Info' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                    {{ n.type }}
+                  </span>
+                </td>
+                <td class="text-muted small" style="max-width:240px">{{ n.message }}</td>
+                <td>
+                  {% if n.status == 'Unread' %}
+                    <span class="badge bg-danger">Unread</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Read</span>
+                  {% endif %}
+                </td>
+                <td class="text-muted small">{{ n.created_at.strftime('%d %b %H:%M') if n.created_at }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7">
+                <div class="empty-state"><i class="fa-solid fa-bell-slash fa-2x text-muted mb-2"></i><p class="text-muted">No notifications yet.</p></div>
+              </td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

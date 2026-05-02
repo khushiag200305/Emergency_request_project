@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}Analytics — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-chart-pie me-2"></i>Analytics & Insights{% endblock %}
+
+{% block content %}
+
+<!-- ── ROW 1: TYPE PIE + SEVERITY DONUT ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-5">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Emergency Type Distribution</h5>
+      </div>
+      <div class="panel-body">
+        <div class="chart-container" style="height:260px">
+          <canvas id="typeChart"></canvas>
+        </div>
+        <div class="chart-legend mt-3">
+          {% for row in type_dist %}
+          <div class="legend-item">
+            <div class="legend-info">
+              <span class="legend-dot" data-type="{{ row.emergency_type | lower }}"></span>
+              <span class="legend-label">{{ row.emergency_type }}</span>
+            </div>
+            <div class="legend-stats">
+              <span class="legend-val">{{ row.total }}</span>
+              <span class="legend-pct">{{ row.pct }}%</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-chart-bar me-2 text-teal"></i>Avg Response Time by Area (minutes)</h5>
+      </div>
+      <div class="panel-body">
+        <div class="chart-container" style="height:300px">
+          <canvas id="areaChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ROW 2: MONTHLY TREND + SEVERITY ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-chart-line me-2 text-success"></i>Monthly Emergency Trend</h5>
+      </div>
+      <div class="panel-body">
+        <div class="chart-container" style="height:280px">
+          <canvas id="monthlyChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-shield-exclamation me-2 text-warning"></i>Severity Distribution</h5>
+      </div>
+      <div class="panel-body">
+        <div class="chart-container" style="height:200px">
+          <canvas id="severityChart"></canvas>
+        </div>
+        <div class="severity-breakdown mt-3">
+          {% set sev_labels = {5:'Critical',4:'High',3:'Medium',2:'Low',1:'Minimal'} %}
+          {% set sev_colors = {5:'#ef4444',4:'#f97316',3:'#eab308',2:'#0ea5e9',1:'#22c55e'} %}
+          {% for row in severity_dist %}
+          <div class="sev-row">
+            <span class="sev-label-name" style="color:{{ sev_colors.get(row.severity_level, '#94a3b8') }}">
+              {{ sev_labels.get(row.severity_level, 'N/A') }} ({{ row.severity_level }})
+            </span>
+            <div class="sev-progress">
+              <div class="sev-bar" style="width:{{ row.pct }}%; background:{{ sev_colors.get(row.severity_level, '#94a3b8') }}"></div>
+            </div>
+            <span class="sev-count">{{ row.cnt }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ROW 3: OPERATOR PERF + FEEDBACK ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-user-tie me-2 text-purple"></i>Operator Performance</h5>
+      </div>
+      <div class="panel-body p-0">
+        <div class="table-responsive">
+          <table class="table erts-table mb-0">
+            <thead>
+              <tr><th>Operator</th><th>Dispatches</th><th>Avg Response</th><th>Rating</th></tr>
+            </thead>
+            <tbody>
+              {% for op in operator_perf %}
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="mini-avatar">{{ op.operator[0] }}</div>
+                    {{ op.operator }}
+                  </div>
+                </td>
+                <td><span class="badge bg-primary">{{ op.dispatches }}</span></td>
+                <td>
+                  <span class="resp-time-badge {% if op.avg_resp and op.avg_resp > 10 %}resp-slow{% endif %}">
+                    {{ op.avg_resp or '—' }} min
+                  </span>
+                </td>
+                <td>
+                  {% if op.avg_resp %}
+                    {% if op.avg_resp <= 8 %}<span class="perf-dot perf-excellent"></span> Excellent
+                    {% elif op.avg_resp <= 12 %}<span class="perf-dot perf-good"></span> Good
+                    {% else %}<span class="perf-dot perf-avg"></span> Average
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-star me-2 text-warning"></i>Citizen Feedback Ratings</h5>
+      </div>
+      <div class="panel-body">
+        <div class="chart-container" style="height:240px">
+          <canvas id="feedbackChart"></canvas>
+        </div>
+        <div class="row mt-3 g-2">
+          {% for fb in feedback_ratings %}
+          <div class="col-6">
+            <div class="feedback-card">
+              <span class="feedback-type">{{ fb.emergency_type }}</span>
+              <div class="stars-row">
+                {% for i in range(1, 6) %}
+                  <i class="fa-solid fa-star {% if i <= fb.avg_rating|round %}text-warning{% else %}text-secondary{% endif %} small"></i>
+                {% endfor %}
+                <span class="rating-val ms-1">{{ fb.avg_rating }}</span>
+              </div>
+              <span class="review-cnt">{{ fb.reviews }} reviews</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── AREA STATS TABLE ── -->
+<div class="card-panel">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-map-location-dot me-2 text-info"></i>Area-wise Emergency Statistics</h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr>
+            <th>Area</th><th>Total</th><th>Avg Resp</th><th>Max Resp</th>
+            <th>Completion Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in area_resp %}
+          <tr>
+            <td>
+              <i class="fa-solid fa-location-dot me-2 text-danger"></i>
+              {{ a.area.replace('Sector ', 'Sector ') }}
+            </td>
+            <td><span class="badge bg-dark">{{ a.total }}</span></td>
+            <td>
+              <span class="resp-time-badge {% if a.avg_resp and a.avg_resp > 11 %}resp-slow{% endif %}">
+                {{ a.avg_resp }} min
+              </span>
+            </td>
+            <td class="text-muted">{{ a.max_resp }} min</td>
+            <td>
+              <div class="mini-progress">
+                <div class="mini-bar" style="width: {{ [100, (100 - (a.avg_resp or 0) * 5)|int]|max }}%"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartDefaults = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'DM Sans', size: 12 } } } }
+};
+const gridStyle = { color: 'rgba(148,163,184,0.08)' };
+const tickStyle = { color: '#64748b', font: { family: 'DM Sans' } };
+
+// 1. Type Pie
+new Chart(document.getElementById('typeChart'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ type_dist | map(attribute='emergency_type') | list | tojson }},
+    datasets: [{
+      data: {{ type_dist | map(attribute='total') | list | tojson }},
+      backgroundColor: ['#0ea5e9','#f97316','#ef4444','#8b5cf6'],
+      borderColor: '#0f172a', borderWidth: 3, hoverOffset: 10
+    }]
+  },
+  options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } } }
+});
+
+// 2. Area Bar
+new Chart(document.getElementById('areaChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ area_resp | map(attribute='area') | list | tojson }},
+    datasets: [{
+      label: 'Avg Response (min)',
+      data: {{ area_resp | map(attribute='avg_resp') | list | tojson }},
+      backgroundColor: (ctx) => {
+        const val = ctx.dataset.data[ctx.dataIndex];
+        return val > 12 ? 'rgba(239,68,68,0.7)' : val > 9 ? 'rgba(249,115,22,0.7)' : 'rgba(14,165,233,0.7)';
+      },
+      borderRadius: 6, borderSkipped: false
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { ...tickStyle, maxRotation: 30 }, grid: gridStyle },
+      y: { ticks: tickStyle, grid: gridStyle }
+    }
+  }
+});
+
+// 3. Monthly Line
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'line',
+  data: {
+    labels: {{ monthly | map(attribute='month') | list | tojson }},
+    datasets: [
+      {
+        label: 'Total', data: {{ monthly | map(attribute='total') | list | tojson }},
+        borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.1)',
+        fill: true, tension: 0.4, pointRadius: 4
+      },
+      {
+        label: 'Resolved', data: {{ monthly | map(attribute='resolved') | list | tojson }},
+        borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)',
+        fill: true, tension: 0.4, pointRadius: 4
+      }
+    ]
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      x: { ticks: tickStyle, grid: gridStyle },
+      y: { ticks: tickStyle, grid: gridStyle }
+    }
+  }
+});
+
+// 4. Severity Bar
+new Chart(document.getElementById('severityChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Critical(5)','High(4)','Medium(3)','Low(2)','Minimal(1)'],
+    datasets: [{
+      data: {{ severity_dist | map(attribute='cnt') | list | tojson }},
+      backgroundColor: ['#ef4444','#f97316','#eab308','#0ea5e9','#22c55e'],
+      borderRadius: 4
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: tickStyle, grid: gridStyle },
+      y: { ticks: { ...tickStyle } }
+    }
+  }
+});
+
+// 5. Feedback Radar
+new Chart(document.getElementById('feedbackChart'), {
+  type: 'radar',
+  data: {
+    labels: {{ feedback_ratings | map(attribute='emergency_type') | list | tojson }},
+    datasets: [{
+      label: 'Avg Rating',
+      data: {{ feedback_ratings | map(attribute='avg_rating') | list | tojson }},
+      borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)',
+      pointBackgroundColor: '#f59e0b', borderWidth: 2, pointRadius: 4
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      r: {
+        min: 0, max: 5, ticks: { stepSize: 1, color: '#64748b', backdropColor: 'transparent' },
+        grid: { color: 'rgba(148,163,184,0.1)' },
+        pointLabels: { color: '#94a3b8', font: { family: 'DM Sans', size: 11 } }
+      }
+    }
+  }
+});
+
+// Legend dots color
+document.querySelectorAll('.legend-dot').forEach(dot => {
+  const map = { medical:'#0ea5e9', fire:'#f97316', crime:'#ef4444', accident:'#8b5cf6' };
+  dot.style.background = map[dot.dataset.type] || '#94a3b8';
+});
+</script>
+{% endblock %}

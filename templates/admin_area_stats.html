@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Area Stats — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-map-location-dot me-2"></i>Area Response Statistics{% endblock %}
+
+{% block content %}
+
+<!-- Stored Stats from Area_Response_Stats table -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-database me-2 text-warning"></i>Stored Area Stats
+      <span class="text-muted small ms-2">(FROM Area_Response_Stats table)</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr><th>Area</th><th>Total Requests</th><th>Avg Response</th><th>Max Response</th><th>Last Updated</th></tr>
+        </thead>
+        <tbody>
+          {% for a in stored_stats %}
+          <tr>
+            <td><i class="fa-solid fa-location-dot me-2 text-danger"></i>{{ a.area }}</td>
+            <td><span class="badge bg-dark">{{ a.total_requests }}</span></td>
+            <td>
+              <span class="resp-time-badge {% if a.avg_response_time and a.avg_response_time > 10 %}resp-slow{% endif %}">
+                {{ a.avg_response_time }} min
+              </span>
+            </td>
+            <td class="text-muted">{{ a.max_response_time }} min</td>
+            <td class="text-muted small">{{ a.last_updated.strftime('%d %b %Y %H:%M') if a.last_updated else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-3">No stored area stats yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Live Computed Stats (GROUP BY + HAVING + aggregate functions) -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-bolt me-2 text-info"></i>Live Computed Stats
+      <span class="text-muted small ms-2">(GROUP BY location with AVG, MAX, MIN, COUNT · HAVING COUNT ≥ 1)</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr><th>Area</th><th>Total</th><th>Avg Resp (min)</th><th>Max Resp</th><th>Min Resp</th><th>Completed</th><th>Completion %</th></tr>
+        </thead>
+        <tbody>
+          {% for a in live_stats %}
+          {% set pct = ((a.completed / a.total_requests) * 100) | round(1) if a.total_requests else 0 %}
+          <tr>
+            <td><i class="fa-solid fa-location-dot me-2 text-info"></i>{{ a.area }}</td>
+            <td><span class="badge bg-dark">{{ a.total_requests }}</span></td>
+            <td>
+              <span class="resp-time-badge {% if a.avg_response_mins and a.avg_response_mins > 12 %}resp-slow{% endif %}">
+                {{ a.avg_response_mins or '—' }} min
+              </span>
+            </td>
+            <td class="text-muted">{{ a.max_response_mins or '—' }} min</td>
+            <td class="text-success small">{{ a.min_response_mins or '—' }} min</td>
+            <td><span class="badge bg-success">{{ a.completed }}</span></td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="mini-progress flex-fill">
+                  <div class="mini-bar" style="width:{{ pct }}%"></div>
+                </div>
+                <span class="small text-muted">{{ pct }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-3">No dispatch data with arrival times yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- High Volume Areas (HAVING COUNT > AVG subquery) -->
+<div class="card-panel">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-fire-flame-curved me-2 text-danger"></i>High Volume Areas
+      <span class="text-muted small ms-2">(HAVING COUNT(*) &gt; AVG subquery)</span>
+    </h5>
+    <p class="text-muted small mb-0">Areas with above-average emergency count — identified using a nested subquery.</p>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>Area / Location</th><th>Total Emergencies</th><th>Load Indicator</th></tr>
+        </thead>
+        <tbody>
+          {% for h in high_volume_areas %}
+          <tr>
+            <td><i class="fa-solid fa-triangle-exclamation me-2 text-warning"></i>{{ h.location }}</td>
+            <td><span class="badge bg-danger">{{ h.total }}</span></td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="mini-progress flex-fill" style="max-width:200px">
+                  {% set max_total = high_volume_areas | map(attribute='total') | max %}
+                  <div class="mini-bar" style="width:{{ ((h.total / max_total) * 100) | round }}%; background:#ef4444"></div>
+                </div>
+                <span class="small text-danger fw-semibold">High</span>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-center text-muted py-3">No high-volume areas identified.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

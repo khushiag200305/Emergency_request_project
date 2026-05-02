@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Citizen Portal — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-house-chimney-crack me-2"></i>My Emergency Portal{% endblock %}
+
+{% block content %}
+
+<!-- ── NOTIFICATIONS BANNER ── -->
+{% if notifications %}
+<div class="alert alert-info alert-dismissible fade show d-flex align-items-center gap-2 mb-4" role="alert">
+  <i class="fa-solid fa-bell fa-lg"></i>
+  <div>
+    <strong>{{ notifications | length }} new notification{{ 's' if notifications|length > 1 }}:</strong>
+    {{ notifications[0].message }}
+    {% if notifications | length > 1 %} <span class="text-muted small">+{{ notifications|length - 1 }} more</span>{% endif %}
+  </div>
+  <form method="POST" action="{{ url_for('mark_notifications_read') }}" class="ms-auto">
+    <button type="submit" class="btn btn-sm btn-outline-light">Mark all read</button>
+  </form>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<!-- ── REPORT FORM + TIPS ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-5">
+    <div class="card-panel report-card">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-siren-on me-2 text-danger"></i>Report New Emergency</h5>
+        <p class="text-muted small mb-0">Fill in the details below. Help will be dispatched immediately.</p>
+      </div>
+      <div class="panel-body">
+        <form method="POST" action="{{ url_for('report_emergency') }}" id="reportForm">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Emergency Type <span class="text-danger">*</span></label>
+            <div class="type-selector">
+              {% set types = [('Medical','fa-kit-medical','medical'),('Fire','fa-fire-flame-curved','fire'),
+                              ('Crime','fa-user-shield','crime'),('Accident','fa-car-burst','accident')] %}
+              {% for val, icon, cls in types %}
+              <input type="radio" name="emergency_type" id="type_{{ cls }}" value="{{ val }}" class="type-radio" required>
+              <label for="type_{{ cls }}" class="type-label type-{{ cls }}">
+                <i class="fa-solid {{ icon }}"></i><span>{{ val }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="location" class="form-label fw-semibold">Location <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text bg-dark border-secondary text-muted"><i class="fa-solid fa-location-dot"></i></span>
+              <input type="text" class="form-control" id="location" name="location"
+                     placeholder="e.g. Sector 17, Near Park" required/>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="description" class="form-label fw-semibold">Description</label>
+            <textarea class="form-control" id="description" name="description" rows="3"
+                      placeholder="Briefly describe the emergency situation…"></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Severity Level <span class="text-danger">*</span></label>
+            <div class="severity-selector">
+              {% set sevs = [(1,'Minimal','sev-1'),(2,'Low','sev-2'),(3,'Medium','sev-3'),(4,'High','sev-4'),(5,'Critical','sev-5')] %}
+              {% for val, lbl, cls in sevs %}
+              <input type="radio" name="severity_level" id="sev{{ val }}" value="{{ val }}"
+                     class="sev-radio" {% if val == 3 %}checked{% endif %}>
+              <label for="sev{{ val }}" class="sev-label {{ cls }}">
+                <span class="sev-num">{{ val }}</span><span class="sev-txt">{{ lbl }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Caller Details (uses Caller_Details table) -->
+          <div class="mb-3 border border-secondary rounded p-3" style="background:var(--bg-elevated)">
+            <p class="text-muted small mb-2"><i class="fa-solid fa-phone me-1"></i>Caller Details <span class="text-muted">(optional)</span></p>
+            <div class="row g-2">
+              <div class="col-6">
+                <input type="text" class="form-control form-control-sm" name="caller_name" placeholder="Your name"/>
+              </div>
+              <div class="col-6">
+                <input type="text" class="form-control form-control-sm" name="caller_phone" placeholder="Phone number"/>
+              </div>
+              <div class="col-12">
+                <select name="relation_to_victim" class="form-select form-select-sm">
+                  <option value="Self">Self</option>
+                  <option value="Witness">Witness</option>
+                  <option value="Family">Family</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-danger w-100 btn-report">
+            <i class="fa-solid fa-bell-concierge me-2"></i>Submit Emergency Report
+          </button>
+          <p class="text-muted text-center small mt-2">
+            <i class="fa-solid fa-shield-halved me-1"></i>Your request will be reviewed immediately by an operator.
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK TIPS + MINI STATS -->
+  <div class="col-lg-7">
+    <div class="card-panel mb-4 tips-panel">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-circle-info me-2 text-info"></i>Emergency Response Guide</h5>
+      </div>
+      <div class="panel-body">
+        <div class="row g-3">
+          <div class="col-md-6"><div class="tip-card medical-tip"><i class="fa-solid fa-kit-medical fa-lg"></i><h6>Medical Emergency</h6><p>Keep patient calm. Don't move if unconscious. Note any medications.</p></div></div>
+          <div class="col-md-6"><div class="tip-card fire-tip"><i class="fa-solid fa-fire-flame-curved fa-lg"></i><h6>Fire Emergency</h6><p>Evacuate immediately. Don't use elevators. Stay low if there's smoke.</p></div></div>
+          <div class="col-md-6"><div class="tip-card crime-tip"><i class="fa-solid fa-user-shield fa-lg"></i><h6>Crime / Safety</h6><p>Move to a safe location. Don't confront. Note suspect description.</p></div></div>
+          <div class="col-md-6"><div class="tip-card accident-tip"><i class="fa-solid fa-car-burst fa-lg"></i><h6>Road Accident</h6><p>Don't move injured persons. Turn on hazard lights. Clear road safely.</p></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-4"><div class="mini-stat-card"><div class="mini-stat-val text-warning">{{ requests | selectattr('status', 'equalto', 'Pending') | list | length }}</div><div class="mini-stat-lbl">Pending</div></div></div>
+      <div class="col-4"><div class="mini-stat-card"><div class="mini-stat-val text-info">{{ requests | selectattr('status', 'in', ['Assigned', 'In Progress']) | list | length }}</div><div class="mini-stat-lbl">Active</div></div></div>
+      <div class="col-4"><div class="mini-stat-card"><div class="mini-stat-val text-success">{{ requests | selectattr('status', 'equalto', 'Completed') | list | length }}</div><div class="mini-stat-lbl">Resolved</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MY REQUESTS TABLE ── -->
+<div class="card-panel">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-clock-rotate-left me-2 text-secondary"></i>My Request History</h5>
+  </div>
+  <div class="panel-body p-0">
+    {% if requests %}
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr>
+            <th>#ID</th><th>Type</th><th>Location</th><th>Severity</th>
+            <th>Status</th><th>Vehicle</th><th>Submitted</th><th>Resp. Time</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in requests %}
+          <tr>
+            <td><span class="req-id">#{{ r.request_id }}</span></td>
+            <td><span class="badge-type badge-{{ r.emergency_type | lower }}">{{ r.emergency_type }}</span></td>
+            <td>{{ r.location }}</td>
+            <td>
+              <div class="sev-pills">
+                {% for i in range(1, 6) %}
+                  <span class="sev-pip {% if i <= r.severity_level %}sev-pip-{{ r.severity_level }}{% endif %}"></span>
+                {% endfor %}
+              </div>
+            </td>
+            <td><span class="status-badge status-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span></td>
+            <td class="small">
+              {% if r.vehicle_type %}
+                <i class="fa-solid fa-truck-medical me-1 text-info"></i>{{ r.vehicle_type }}
+                {% if r.driver_name %}<br><span class="text-muted">{{ r.driver_name }}</span>{% endif %}
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-muted small">{{ r.request_time.strftime('%d %b %Y %H:%M') if r.request_time }}</td>
+            <td>
+              {% if r.response_time %}
+                <span class="resp-time-badge">{{ r.response_time }} min</span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td>
+              {% if r.status == 'Completed' %}
+                <a href="{{ url_for('submit_feedback', req_id=r.request_id) }}" class="btn btn-sm btn-outline-warning">
+                  <i class="fa-solid fa-star me-1"></i>Feedback
+                </a>
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="fa-solid fa-inbox fa-3x text-muted mb-3"></i>
+      <h6>No requests yet</h6>
+      <p class="text-muted">Use the form above to report an emergency.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

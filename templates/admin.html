@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-gauge-high me-2"></i>Admin Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ── KPI CARDS ── -->
+<div class="row g-4 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon"><i class="fa-solid fa-bell-concierge"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ total }}</div>
+        <div class="kpi-label">Total Emergencies</div>
+        <div class="kpi-sub">All time records</div>
+      </div>
+      <div class="kpi-trend up"><i class="fa-solid fa-arrow-trend-up"></i></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card kpi-orange">
+      <div class="kpi-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ pending }}</div>
+        <div class="kpi-label">Pending Requests</div>
+        <div class="kpi-sub">Awaiting dispatch</div>
+      </div>
+      <div class="kpi-trend down"><i class="fa-solid fa-arrow-trend-down"></i></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card kpi-teal">
+      <div class="kpi-icon"><i class="fa-solid fa-truck-medical"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ available_v }}</div>
+        <div class="kpi-label">Vehicles Available</div>
+        <div class="kpi-sub">Ready for dispatch</div>
+      </div>
+      <div class="kpi-trend up"><i class="fa-solid fa-arrow-trend-up"></i></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="kpi-card kpi-purple">
+      <div class="kpi-icon"><i class="fa-solid fa-stopwatch"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ avg_resp }}<span class="kpi-unit">min</span></div>
+        <div class="kpi-label">Avg Response Time</div>
+        <div class="kpi-sub">Dispatch to arrival</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SECONDARY STATS ── -->
+<div class="row g-4 mb-4">
+  <div class="col-md-3">
+    <div class="stat-mini stat-green">
+      <i class="fa-solid fa-circle-check"></i>
+      <div><span class="stat-mini-val">{{ completed }}</span><span class="stat-mini-lbl">Completed</span></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-mini stat-blue">
+      <i class="fa-solid fa-spinner fa-spin-pulse"></i>
+      <div><span class="stat-mini-val">{{ in_progress }}</span><span class="stat-mini-lbl">In Progress</span></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-mini stat-indigo">
+      <i class="fa-solid fa-users"></i>
+      <div><span class="stat-mini-val">{{ total_staff }}</span><span class="stat-mini-lbl">Total Staff</span></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('admin_notifications') }}" class="stat-mini stat-orange text-decoration-none">
+      <i class="fa-solid fa-bell"></i>
+      <div><span class="stat-mini-val">{{ unread_notif }}</span><span class="stat-mini-lbl">Unread Notifs</span></div>
+    </a>
+  </div>
+</div>
+
+<!-- ── CHARTS ROW 1 ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-5">
+    <div class="card-panel">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Emergency Type Distribution</h5>
+      </div>
+      <div class="panel-body chart-container" style="height:280px">
+        <canvas id="typePieChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card-panel">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-chart-bar me-2 text-teal"></i>Response Time by Area (min)</h5>
+      </div>
+      <div class="panel-body chart-container" style="height:280px">
+        <canvas id="areaBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHARTS ROW 2 (new) ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card-panel">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-truck-medical me-2 text-info"></i>Vehicle Status Breakdown</h5>
+      </div>
+      <div class="panel-body chart-container" style="height:240px">
+        <canvas id="vehicleStatusChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card-panel">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-users me-2 text-purple"></i>Staff Availability</h5>
+      </div>
+      <div class="panel-body chart-container" style="height:240px">
+        <canvas id="staffAvailChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── AREA STATS TABLE (new — uses Area_Response_Stats) ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header d-flex justify-content-between align-items-center">
+    <h5><i class="fa-solid fa-map-location-dot me-2 text-warning"></i>Area Response Statistics</h5>
+    <a href="{{ url_for('admin_area_stats') }}" class="btn btn-sm btn-outline-warning">Full Report</a>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>Area</th><th>Total Requests</th><th>Avg Response</th><th>Max Response</th><th>Last Updated</th></tr>
+        </thead>
+        <tbody>
+          {% for a in area_stats[:8] %}
+          <tr>
+            <td><i class="fa-solid fa-location-dot me-2 text-danger"></i>{{ a.area }}</td>
+            <td><span class="badge bg-dark">{{ a.total_requests }}</span></td>
+            <td><span class="resp-time-badge {% if a.avg_response_time and a.avg_response_time > 10 %}resp-slow{% endif %}">{{ a.avg_response_time }} min</span></td>
+            <td class="text-muted">{{ a.max_response_time }} min</td>
+            <td class="text-muted small">{{ a.last_updated.strftime('%d %b %H:%M') if a.last_updated else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-3">No area stats yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── RECENT REQUESTS + INCIDENT LOG ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="card-panel">
+      <div class="panel-header d-flex justify-content-between align-items-center">
+        <h5><i class="fa-solid fa-list-check me-2 text-danger"></i>Recent Emergency Requests</h5>
+        <a href="{{ url_for('admin_all_requests') }}" class="btn btn-sm btn-outline-primary">View All</a>
+      </div>
+      <div class="panel-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover erts-table mb-0">
+            <thead>
+              <tr><th>#ID</th><th>Type</th><th>Location</th><th>Severity</th><th>Status</th><th>Time</th></tr>
+            </thead>
+            <tbody>
+              {% for r in all_requests[:15] %}
+              <tr>
+                <td><span class="req-id">#{{ r.request_id }}</span></td>
+                <td>
+                  <span class="badge-type badge-{{ r.emergency_type | lower }}">
+                    {% if r.emergency_type == 'Medical' %}<i class="fa-solid fa-kit-medical"></i>
+                    {% elif r.emergency_type == 'Fire' %}<i class="fa-solid fa-fire-flame-curved"></i>
+                    {% elif r.emergency_type == 'Crime' %}<i class="fa-solid fa-user-shield"></i>
+                    {% else %}<i class="fa-solid fa-car-burst"></i>{% endif %}
+                    {{ r.emergency_type }}
+                  </span>
+                </td>
+                <td class="text-truncate" style="max-width:160px">{{ r.location }}</td>
+                <td>
+                  <div class="severity-bar">
+                    <div class="severity-fill sev-{{ r.severity_level }}" style="width:{{ r.severity_level * 20 }}%"></div>
+                    <span class="sev-num">{{ r.severity_level }}/5</span>
+                  </div>
+                </td>
+                <td><span class="status-badge status-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span></td>
+                <td class="text-muted small">{{ r.request_time.strftime('%d %b %H:%M') if r.request_time }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-timeline me-2 text-warning"></i>Incident Log</h5>
+      </div>
+      <div class="panel-body p-0">
+        <div class="incident-feed">
+          {% for inc in recent_incidents %}
+          <div class="incident-item">
+            <div class="incident-dot dot-{{ inc.new_status | lower | replace(' ', '-') }}"></div>
+            <div class="incident-body">
+              <div class="incident-title">Request #{{ inc.request_id }}</div>
+              <div class="incident-change">
+                <span class="status-badge status-{{ inc.old_status | lower | replace(' ', '-') }} badge-xs">{{ inc.old_status }}</span>
+                <i class="fa-solid fa-arrow-right mx-1 text-muted small"></i>
+                <span class="status-badge status-{{ inc.new_status | lower | replace(' ', '-') }} badge-xs">{{ inc.new_status }}</span>
+              </div>
+              <div class="incident-meta">
+                {% if inc.changed_by_name %}by {{ inc.changed_by_name }} · {% endif %}
+                {{ inc.change_time.strftime('%d %b %H:%M') if inc.change_time }}
+              </div>
+              {% if inc.remarks %}<div class="incident-remarks text-muted small">{{ inc.remarks }}</div>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Type Pie
+fetch('/api/chart/type-dist').then(r=>r.json()).then(data => {
+  new Chart(document.getElementById('typePieChart'), {
+    type: 'doughnut',
+    data: {
+      labels: data.map(d=>d.emergency_type),
+      datasets: [{ data: data.map(d=>d.cnt), backgroundColor:['#0ea5e9','#f97316','#ef4444','#8b5cf6'], borderColor:'#0f172a', borderWidth:3, hoverOffset:8 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#94a3b8', padding:16, font:{family:'DM Sans'} } } } }
+  });
+});
+
+// Area Bar
+fetch('/api/chart/area-response').then(r=>r.json()).then(data => {
+  new Chart(document.getElementById('areaBarChart'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d=>d.area.replace('Sector ','Sec ')),
+      datasets: [{ label:'Avg Response (min)', data: data.map(d=>d.avg_resp), backgroundColor:'rgba(14,165,233,0.7)', borderColor:'#0ea5e9', borderWidth:2, borderRadius:6 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,0.08)'}}, y:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,0.08)'}} } }
+  });
+});
+
+// Vehicle Status Donut
+fetch('/api/chart/vehicle-status').then(r=>r.json()).then(data => {
+  new Chart(document.getElementById('vehicleStatusChart'), {
+    type: 'doughnut',
+    data: {
+      labels: data.map(d=>d.availability),
+      datasets: [{ data: data.map(d=>d.cnt), backgroundColor:['#22c55e','#f97316','#8b5cf6'], borderColor:'#0f172a', borderWidth:3, hoverOffset:6 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#94a3b8', font:{family:'DM Sans'} } } } }
+  });
+});
+
+// Staff Availability Bar
+fetch('/api/chart/staff-availability').then(r=>r.json()).then(data => {
+  new Chart(document.getElementById('staffAvailChart'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d=>d.availability),
+      datasets: [{ label:'Staff', data: data.map(d=>d.cnt), backgroundColor:['#22c55e','#0ea5e9','#64748b'], borderRadius:6 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,0.08)'}}, y:{ticks:{color:'#94a3b8'},grid:{color:'rgba(148,163,184,0.08)'}} } }
+  });
+});
+</script>
+{% endblock %}

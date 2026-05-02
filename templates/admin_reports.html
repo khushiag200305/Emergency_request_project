@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% block title %}SQL Reports — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-file-chart-column me-2"></i>SQL Reports & Analytics{% endblock %}
+
+{% block content %}
+
+<!-- Page intro -->
+<div class="alert alert-info d-flex align-items-center gap-3 mb-4">
+  <i class="fa-solid fa-database fa-2x"></i>
+  <div>
+    <strong>DBMS Query Showcase</strong> — This page demonstrates advanced SQL: JOINs, correlated subqueries,
+    GROUP BY with HAVING, aggregate functions (AVG, COUNT, SUM, MAX, MIN), NOT IN, EXISTS, and nested subqueries.
+  </div>
+</div>
+
+<!-- ── 1. OPERATOR PERFORMANCE (correlated subquery) ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-user-tie me-2 text-purple"></i>Operator Performance
+      <span class="text-muted small ms-2">(Correlated subquery · COUNT · AVG per operator)</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr><th>Operator</th><th>Email</th><th>Total Dispatches</th><th>Avg Response (min)</th><th>Completed</th><th>Performance</th></tr>
+        </thead>
+        <tbody>
+          {% for op in operator_perf %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="mini-avatar">{{ op.operator[0] }}</div>{{ op.operator }}
+              </div>
+            </td>
+            <td class="text-muted small">{{ op.email }}</td>
+            <td><span class="badge bg-primary">{{ op.dispatches }}</span></td>
+            <td>
+              <span class="resp-time-badge {% if op.avg_resp_mins and op.avg_resp_mins > 12 %}resp-slow{% endif %}">
+                {{ op.avg_resp_mins or '—' }} min
+              </span>
+            </td>
+            <td><span class="badge bg-success">{{ op.completed_dispatches }}</span></td>
+            <td>
+              {% if op.avg_resp_mins %}
+                {% if op.avg_resp_mins <= 8 %}<span class="perf-dot perf-excellent"></span><span class="text-success">Excellent</span>
+                {% elif op.avg_resp_mins <= 12 %}<span class="perf-dot perf-good"></span><span class="text-info">Good</span>
+                {% else %}<span class="perf-dot perf-avg"></span><span class="text-warning">Average</span>{% endif %}
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-3">No operators found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 2. EMERGENCY TYPE BREAKDOWN (GROUP BY + CASE WHEN) ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Emergency Type Breakdown
+      <span class="text-muted small ms-2">(GROUP BY · COUNT · SUM(CASE WHEN) · completion %)</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>Type</th><th>Total</th><th>Completed</th><th>Pending</th><th>In Progress</th><th>Completion %</th></tr>
+        </thead>
+        <tbody>
+          {% for t in type_stats %}
+          <tr>
+            <td><span class="badge-type badge-{{ t.emergency_type | lower }}">{{ t.emergency_type }}</span></td>
+            <td><span class="badge bg-dark">{{ t.total }}</span></td>
+            <td><span class="badge bg-success">{{ t.completed }}</span></td>
+            <td><span class="badge bg-warning text-dark">{{ t.pending }}</span></td>
+            <td><span class="badge bg-info text-dark">{{ t.in_progress }}</span></td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="mini-progress flex-fill">
+                  <div class="mini-bar" style="width:{{ t.completion_pct }}%"></div>
+                </div>
+                <span class="small text-muted">{{ t.completion_pct }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 3. SEVERITY DISTRIBUTION (GROUP BY + % subquery) ── -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-5">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-shield-exclamation me-2 text-warning"></i>Severity Distribution
+          <span class="text-muted small ms-2">(GROUP BY · COUNT · nested % subquery)</span>
+        </h5>
+      </div>
+      <div class="panel-body p-0">
+        <table class="table erts-table mb-0">
+          <thead><tr><th>Level</th><th>Count</th><th>% of Total</th><th>Bar</th></tr></thead>
+          <tbody>
+            {% set sev_labels = {5:'Critical',4:'High',3:'Medium',2:'Low',1:'Minimal'} %}
+            {% set sev_colors = {5:'#ef4444',4:'#f97316',3:'#eab308',2:'#0ea5e9',1:'#22c55e'} %}
+            {% for s in severity_dist %}
+            <tr>
+              <td style="color:{{ sev_colors.get(s.severity_level,'#94a3b8') }}">
+                <strong>{{ s.severity_level }}</strong> — {{ sev_labels.get(s.severity_level,'—') }}
+              </td>
+              <td><span class="badge bg-dark">{{ s.cnt }}</span></td>
+              <td class="text-muted">{{ s.pct }}%</td>
+              <td>
+                <div class="mini-progress">
+                  <div class="mini-bar" style="width:{{ s.pct }}%; background:{{ sev_colors.get(s.severity_level,'#94a3b8') }}"></div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 4. STAFF SHIFT BREAKDOWN ── -->
+  <div class="col-lg-7">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-clock me-2 text-teal"></i>Staff by Shift
+          <span class="text-muted small ms-2">(GROUP BY shift · SUM(CASE WHEN))</span>
+        </h5>
+      </div>
+      <div class="panel-body p-0">
+        <table class="table erts-table mb-0">
+          <thead><tr><th>Shift</th><th>Total</th><th>Available</th><th>Assigned</th><th>Off-duty</th></tr></thead>
+          <tbody>
+            {% for s in staff_shift %}
+            <tr>
+              <td>
+                {% if s.shift == 'Morning' %}<i class="fa-solid fa-sun text-warning me-2"></i>
+                {% elif s.shift == 'Evening' %}<i class="fa-solid fa-cloud-sun text-orange me-2"></i>
+                {% else %}<i class="fa-solid fa-moon text-info me-2"></i>{% endif %}
+                {{ s.shift }}
+              </td>
+              <td><span class="badge bg-dark">{{ s.total_staff }}</span></td>
+              <td><span class="badge bg-success">{{ s.available }}</span></td>
+              <td><span class="badge bg-primary">{{ s.assigned }}</span></td>
+              <td><span class="badge bg-secondary">{{ s.off_duty }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">No shift data.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 5. TOP DISPATCHED VEHICLES ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-truck-fast me-2 text-danger"></i>Most Dispatched Vehicles
+      <span class="text-muted small ms-2">(JOIN · GROUP BY · ORDER BY · LIMIT 10)</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>Vehicle</th><th>Plate</th><th>Driver</th><th>Area</th><th>Total Dispatches</th><th>Avg Response</th></tr>
+        </thead>
+        <tbody>
+          {% for v in top_vehicles %}
+          <tr>
+            <td>
+              <span class="vehicle-chip-sm">
+                {% if 'Ambulance' in v.vehicle_type %}<i class="fa-solid fa-truck-medical text-info"></i>
+                {% elif 'Fire' in v.vehicle_type %}<i class="fa-solid fa-fire-extinguisher text-danger"></i>
+                {% else %}<i class="fa-solid fa-car-side text-primary"></i>{% endif %}
+                {{ v.vehicle_type }}
+              </span>
+            </td>
+            <td><code class="plate-code">{{ v.license_plate }}</code></td>
+            <td>{{ v.driver_name }}</td>
+            <td class="text-muted small">{{ v.area }}</td>
+            <td><span class="badge bg-danger">{{ v.total_dispatches }}</span></td>
+            <td>
+              <span class="resp-time-badge">{{ v.avg_resp or '—' }} min</span>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-3">No dispatch data.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 6. REPEAT CITIZENS (HAVING COUNT > 1) ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-user-clock me-2 text-orange"></i>Repeat Citizens
+      <span class="text-muted small ms-2">(GROUP BY user_id · HAVING COUNT &gt; 1)</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>Citizen</th><th>Phone</th><th>Total Reports</th><th>Max Severity Reported</th></tr>
+        </thead>
+        <tbody>
+          {% for c in repeat_citizens %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="mini-avatar">{{ c.name[0] }}</div>{{ c.name }}
+              </div>
+            </td>
+            <td class="text-muted small">{{ c.phone_number }}</td>
+            <td><span class="badge bg-warning text-dark">{{ c.total_reports }}</span></td>
+            <td>
+              {% set sev_colors = {5:'#ef4444',4:'#f97316',3:'#eab308',2:'#0ea5e9',1:'#22c55e'} %}
+              <span style="color:{{ sev_colors.get(c.max_severity, '#94a3b8') }}; font-weight:600">
+                Level {{ c.max_severity }}
+              </span>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center text-muted py-3">No repeat citizens found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 7. SLOW RESPONSES — above average (subquery) ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-stopwatch me-2 text-danger"></i>Above-Average Response Times
+      <span class="text-muted small ms-2">(WHERE response_time &gt; (SELECT AVG…) subquery)</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>Dispatch #</th><th>Location</th><th>Type</th><th>Severity</th><th>Response (min)</th><th>Vehicle</th><th>Driver</th></tr>
+        </thead>
+        <tbody>
+          {% for r in slow_responses %}
+          <tr>
+            <td><span class="req-id">{{ r.dispatch_id }}</span></td>
+            <td>{{ r.location }}</td>
+            <td><span class="badge-type badge-{{ r.emergency_type | lower }}">{{ r.emergency_type }}</span></td>
+            <td>
+              {% set sev_colors = {5:'#ef4444',4:'#f97316',3:'#eab308',2:'#0ea5e9',1:'#22c55e'} %}
+              <span style="color:{{ sev_colors.get(r.severity_level,'#94a3b8') }}">{{ r.severity_level }}</span>
+            </td>
+            <td><span class="resp-time-badge resp-slow">{{ r.response_time }} min</span></td>
+            <td class="small">{{ r.vehicle_type }}</td>
+            <td class="text-muted small">{{ r.driver_name }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-3">No above-average response times found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 8. REQUESTS WITH NO DISPATCH (NOT IN subquery) ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-circle-xmark me-2 text-warning"></i>Requests With No Dispatch
+      <span class="text-muted small ms-2">(WHERE request_id NOT IN (SELECT … FROM Dispatch_Record))</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>#ID</th><th>Type</th><th>Location</th><th>Severity</th><th>Status</th><th>Submitted</th></tr>
+        </thead>
+        <tbody>
+          {% for r in no_dispatch %}
+          <tr class="{% if r.severity_level == 5 %}row-critical{% endif %}">
+            <td><span class="req-id">#{{ r.request_id }}</span></td>
+            <td><span class="badge-type badge-{{ r.emergency_type | lower }}">{{ r.emergency_type }}</span></td>
+            <td>{{ r.location }}</td>
+            <td>
+              {% set sev_colors = {5:'#ef4444',4:'#f97316',3:'#eab308',2:'#0ea5e9',1:'#22c55e'} %}
+              <span style="color:{{ sev_colors.get(r.severity_level,'#94a3b8') }}" class="fw-semibold">{{ r.severity_level }}</span>
+            </td>
+            <td><span class="status-badge status-{{ r.status | lower | replace(' ','-') }}">{{ r.status }}</span></td>
+            <td class="text-muted small">{{ r.request_time.strftime('%d %b %H:%M') if r.request_time }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-3">All requests have been dispatched.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 9. SERVICE CENTER SUMMARY (LEFT JOIN + GROUP BY) ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-building me-2 text-teal"></i>Service Center Summary
+      <span class="text-muted small ms-2">(LEFT JOIN Emergency_Vehicle · GROUP BY center · SUM(CASE WHEN))</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>Center</th><th>Type</th><th>Area</th><th>Total Vehicles</th><th>Available</th><th>Busy</th><th>Maintenance</th></tr>
+        </thead>
+        <tbody>
+          {% for c in center_summary %}
+          <tr>
+            <td><strong>{{ c.center_name }}</strong></td>
+            <td><span class="badge bg-secondary">{{ c.service_type }}</span></td>
+            <td class="text-muted small">{{ c.area }}</td>
+            <td><span class="badge bg-dark">{{ c.total_vehicles }}</span></td>
+            <td><span class="badge bg-success">{{ c.available }}</span></td>
+            <td><span class="badge bg-warning text-dark">{{ c.busy }}</span></td>
+            <td><span class="badge bg-purple" style="background:#8b5cf6!important">{{ c.in_maintenance }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-3">No service center data.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 10. MONTHLY TREND (GROUP BY DATE_FORMAT) ── -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-calendar me-2 text-success"></i>Monthly Emergency Trend
+      <span class="text-muted small ms-2">(GROUP BY DATE_FORMAT · SUM(CASE WHEN) per type)</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>Month</th><th>Total</th><th>Resolved</th><th>Medical</th><th>Fire</th><th>Crime</th><th>Accident</th><th>Resolve Rate</th></tr>
+        </thead>
+        <tbody>
+          {% for m in monthly %}
+          {% set rate = ((m.resolved / m.total) * 100) | round(1) if m.total else 0 %}
+          <tr>
+            <td><strong>{{ m.month }}</strong></td>
+            <td><span class="badge bg-dark">{{ m.total }}</span></td>
+            <td><span class="badge bg-success">{{ m.resolved }}</span></td>
+            <td><span class="badge bg-info text-dark">{{ m.medical }}</span></td>
+            <td><span class="badge bg-danger">{{ m.fire }}</span></td>
+            <td><span class="badge bg-secondary">{{ m.crime }}</span></td>
+            <td><span class="badge bg-warning text-dark">{{ m.accident }}</span></td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="mini-progress flex-fill">
+                  <div class="mini-bar" style="width:{{ rate }}%; background:#22c55e"></div>
+                </div>
+                <span class="small text-muted">{{ rate }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-center text-muted py-3">No monthly data.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

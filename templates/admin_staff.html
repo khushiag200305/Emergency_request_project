@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Staff — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-users me-2"></i>Service Staff Management{% endblock %}
+
+{% block content %}
+
+<!-- KPI -->
+<div class="row g-4 mb-4">
+  {% set avail  = staff | selectattr('availability', 'equalto', 'Available') | list | length %}
+  {% set assign = staff | selectattr('availability', 'equalto', 'Assigned')  | list | length %}
+  {% set off    = staff | selectattr('availability', 'equalto', 'Off-duty')  | list | length %}
+  <div class="col-md-3">
+    <div class="kpi-card kpi-blue"><div class="kpi-icon"><i class="fa-solid fa-users"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ staff | length }}</div><div class="kpi-label">Total Staff</div></div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-card kpi-teal"><div class="kpi-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ avail }}</div><div class="kpi-label">Available</div></div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-card kpi-orange"><div class="kpi-icon"><i class="fa-solid fa-person-walking-arrow-right"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ assign }}</div><div class="kpi-label">Assigned</div></div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-card kpi-purple"><div class="kpi-icon"><i class="fa-solid fa-moon"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ off }}</div><div class="kpi-label">Off Duty</div></div></div>
+  </div>
+</div>
+
+<!-- Full Roster -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-id-badge me-2"></i>Staff Roster</h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr>
+            <th>#</th><th>Name</th><th>Role</th><th>Specialization</th>
+            <th>Phone</th><th>Availability</th><th>Shift</th>
+            <th>Center</th><th>Assignments</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in staff %}
+          <tr>
+            <td><span class="req-id">{{ s.staff_id }}</span></td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="mini-avatar mini-avatar-{{ s.role | lower }}">{{ s.name[0] }}</div>
+                <span>{{ s.name }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="role-badge role-{{ s.role | lower }}">
+                {% if s.role == 'Paramedic' %}<i class="fa-solid fa-user-doctor me-1"></i>
+                {% elif s.role == 'Driver' %}<i class="fa-solid fa-id-card me-1"></i>
+                {% elif s.role == 'Firefighter' %}<i class="fa-solid fa-fire-extinguisher me-1"></i>
+                {% else %}<i class="fa-solid fa-shield-halved me-1"></i>{% endif %}
+                {{ s.role }}
+              </span>
+            </td>
+            <td class="text-muted small">{{ s.specialization or '—' }}</td>
+            <td class="text-muted small">{{ s.phone_number }}</td>
+            <td><span class="avail-badge avail-{{ s.availability | lower }}">{{ s.availability }}</span></td>
+            <td>
+              <span class="shift-badge">
+                {% if s.shift == 'Morning' %}<i class="fa-solid fa-sun text-warning"></i>
+                {% elif s.shift == 'Evening' %}<i class="fa-solid fa-cloud-sun text-orange"></i>
+                {% else %}<i class="fa-solid fa-moon text-info"></i>{% endif %}
+                {{ s.shift }}
+              </span>
+            </td>
+            <td>{{ s.center_name or '—' }}<br><span class="text-muted small">{{ s.area or '' }}</span></td>
+            <td><span class="badge bg-dark">{{ s.total_assignments }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Staff Never Assigned (NOT IN subquery) -->
+{% if unassigned_staff %}
+<div class="card-panel">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-user-slash me-2 text-warning"></i>Staff Never Assigned
+      <span class="badge bg-warning text-dark ms-2">{{ unassigned_staff | length }}</span>
+    </h5>
+    <p class="text-muted small mb-0">These staff members have no entries in the Staff_Assignment table.</p>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>#</th><th>Name</th><th>Role</th><th>Specialization</th><th>Availability</th></tr>
+        </thead>
+        <tbody>
+          {% for s in unassigned_staff %}
+          <tr>
+            <td><span class="req-id">{{ s.staff_id }}</span></td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="mini-avatar">{{ s.name[0] }}</div>{{ s.name }}
+              </div>
+            </td>
+            <td><span class="role-badge role-{{ s.role | lower }}">{{ s.role }}</span></td>
+            <td class="text-muted small">{{ s.specialization or '—' }}</td>
+            <td><span class="avail-badge avail-{{ s.availability | lower }}">{{ s.availability }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

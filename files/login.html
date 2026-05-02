@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ERTS — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+  <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet"/>
+</head>
+<body class="login-body">
+
+<div class="login-bg">
+  <div class="login-grid"></div>
+  <!-- Animated blobs -->
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+
+<div class="login-wrap">
+  <!-- Left Panel -->
+  <div class="login-left d-none d-lg-flex">
+    <div class="login-brand-area">
+      <div class="login-logo">
+        <i class="fa-solid fa-tower-broadcast"></i>
+      </div>
+      <h1 class="login-brand-name">ERTS</h1>
+      <p class="login-brand-tagline">Emergency Response<br/>Optimization & Tracking System</p>
+      <div class="login-stats-row">
+        <div class="login-stat">
+          <span class="stat-num">100</span>
+          <span class="stat-lbl">Users</span>
+        </div>
+        <div class="login-stat">
+          <span class="stat-num">30</span>
+          <span class="stat-lbl">Vehicles</span>
+        </div>
+        <div class="login-stat">
+          <span class="stat-num">100</span>
+          <span class="stat-lbl">Incidents</span>
+        </div>
+      </div>
+      <div class="login-badges">
+        <span class="login-badge"><i class="fa-solid fa-ambulance"></i> Medical</span>
+        <span class="login-badge"><i class="fa-solid fa-fire"></i> Fire</span>
+        <span class="login-badge"><i class="fa-solid fa-shield-halved"></i> Police</span>
+        <span class="login-badge"><i class="fa-solid fa-car-burst"></i> Accident</span>
+      </div>
+    </div>
+    <div class="login-footer-note">
+      DBMS Project · Group 2Q23 · Thapar Institute
+    </div>
+  </div>
+
+  <!-- Right Panel (Form) -->
+  <div class="login-right">
+    <div class="login-card">
+      <div class="login-card-header">
+        <div class="login-icon-sm d-lg-none">
+          <i class="fa-solid fa-tower-broadcast"></i>
+        </div>
+        <h2 class="login-title">Welcome Back</h2>
+        <p class="login-subtitle">Sign in to access the Emergency Response Portal</p>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for cat, msg in messages %}
+            <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+              {{ msg }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('login') }}" class="login-form">
+        <div class="form-floating mb-3">
+          <input type="email" class="form-control" id="email" name="email"
+                 placeholder="name@example.com" required autofocus/>
+          <label for="email"><i class="fa-solid fa-envelope me-2 text-muted"></i>Email Address</label>
+        </div>
+        <div class="form-floating mb-4 position-relative">
+          <input type="password" class="form-control" id="password" name="password"
+                 placeholder="Password" required/>
+          <label for="password"><i class="fa-solid fa-lock me-2 text-muted"></i>Password</label>
+          <button type="button" class="btn-eye" id="togglePwd">
+            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+          </button>
+        </div>
+        <button type="submit" class="btn btn-login w-100">
+          <i class="fa-solid fa-right-to-bracket me-2"></i>Sign In
+        </button>
+      </form>
+
+      <!-- Demo Credentials -->
+      <div class="demo-creds mt-4">
+        <p class="demo-title"><i class="fa-solid fa-key me-1"></i>Demo Credentials</p>
+        <div class="demo-grid">
+          <div class="demo-item" onclick="fillCreds('arjun@erts.com','admin@123')">
+            <span class="demo-role admin-role">Admin</span>
+            <span class="demo-email">arjun@erts.com</span>
+          </div>
+          <div class="demo-item" onclick="fillCreds('neha.op@erts.com','oper@123')">
+            <span class="demo-role operator-role">Operator</span>
+            <span class="demo-email">neha.op@erts.com</span>
+          </div>
+          <div class="demo-item" onclick="fillCreds('suman@mail.com','cit@123')">
+            <span class="demo-role citizen-role">Citizen</span>
+            <span class="demo-email">suman@mail.com</span>
+          </div>
+        </div>
+        <p class="demo-hint">Click any row to auto-fill</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Toggle password visibility
+  document.getElementById('togglePwd').addEventListener('click', function () {
+    const pwd = document.getElementById('password');
+    const icon = document.getElementById('eyeIcon');
+    if (pwd.type === 'password') {
+      pwd.type = 'text';
+      icon.classList.replace('fa-eye', 'fa-eye-slash');
+    } else {
+      pwd.type = 'password';
+      icon.classList.replace('fa-eye-slash', 'fa-eye');
+    }
+  });
+
+  function fillCreds(email, pwd) {
+    document.getElementById('email').value = email;
+    document.getElementById('password').value = pwd;
+    document.getElementById('email').focus();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}All Requests — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-list-check me-2"></i>All Emergency Requests{% endblock %}
+
+{% block content %}
+
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-filter me-2 text-secondary"></i>Filter Requests</h5>
+  </div>
+  <div class="panel-body">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-select">
+          <option value="">All Statuses</option>
+          {% for s in ['Pending','Assigned','In Progress','Completed','Cancelled'] %}
+          <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Emergency Type</label>
+        <select name="type" class="form-select">
+          <option value="">All Types</option>
+          {% for t in ['Medical','Fire','Crime','Accident'] %}
+          <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="fa-solid fa-magnifying-glass me-2"></i>Apply Filter
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card-panel">
+  <div class="panel-header d-flex justify-content-between align-items-center">
+    <h5><i class="fa-solid fa-table me-2 text-primary"></i>Results
+      <span class="badge bg-primary ms-2">{{ requests | length }}</span>
+    </h5>
+    {% if status_filter or type_filter %}
+    <a href="{{ url_for('admin_all_requests') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="fa-solid fa-xmark me-1"></i>Clear Filters
+    </a>
+    {% endif %}
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr>
+            <th>#ID</th><th>Type</th><th>Location</th><th>Description</th>
+            <th>Citizen</th><th>Caller</th><th>Severity</th>
+            <th>Status</th><th>Vehicle</th><th>Response</th><th>Time</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in requests %}
+          <tr class="{% if r.severity_level == 5 and r.status in ['Pending','Assigned'] %}row-critical{% endif %}">
+            <td><span class="req-id">#{{ r.request_id }}</span></td>
+            <td>
+              <span class="badge-type badge-{{ r.emergency_type | lower }}">
+                {% if r.emergency_type == 'Medical' %}<i class="fa-solid fa-kit-medical"></i>
+                {% elif r.emergency_type == 'Fire' %}<i class="fa-solid fa-fire-flame-curved"></i>
+                {% elif r.emergency_type == 'Crime' %}<i class="fa-solid fa-user-shield"></i>
+                {% else %}<i class="fa-solid fa-car-burst"></i>{% endif %}
+                {{ r.emergency_type }}
+              </span>
+            </td>
+            <td>{{ r.location }}</td>
+            <td class="desc-cell text-truncate" style="max-width:140px">
+              <span title="{{ r.description }}">{{ r.description }}</span>
+            </td>
+            <td>
+              <div class="citizen-info">
+                <span class="citizen-name">{{ r.citizen }}</span>
+                <span class="citizen-phone">{{ r.phone_number }}</span>
+              </div>
+            </td>
+            <td class="small">
+              {% if r.caller_name or r.caller_phone %}
+                <span class="text-info">{{ r.caller_name or '—' }}</span><br>
+                <span class="text-muted">{{ r.caller_phone or '' }}</span><br>
+                <span class="badge bg-dark text-muted small">{{ r.relation_to_victim or '' }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="sev-pills">
+                {% for i in range(1, 6) %}
+                  <span class="sev-pip {% if i <= r.severity_level %}sev-pip-{{ r.severity_level }}{% endif %}"></span>
+                {% endfor %}
+              </div>
+            </td>
+            <td><span class="status-badge status-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span></td>
+            <td class="small">{{ r.vehicle_type or '—' }}<br><span class="text-muted">{{ r.driver_name or '' }}</span></td>
+            <td>
+              {% if r.response_time %}<span class="resp-time-badge">{{ r.response_time }} min</span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td class="text-muted small">{{ r.request_time.strftime('%d %b %H:%M') if r.request_time }}</td>
+            <td>
+              {% if r.status in ['Pending', 'Assigned'] %}
+              <form method="POST" action="{{ url_for('admin_cancel_request', req_id=r.request_id) }}"
+                    onsubmit="return confirm('Cancel request #{{ r.request_id }}?')">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="fa-solid fa-ban"></i>
+                </button>
+              </form>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="12">
+              <div class="empty-state">
+                <i class="fa-solid fa-inbox fa-2x text-muted mb-2"></i>
+                <p class="text-muted mb-0">No requests match the filter.</p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

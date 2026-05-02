@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Feedback — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-star me-2"></i>Citizen Feedback{% endblock %}
+
+{% block content %}
+
+<!-- KPI Cards -->
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon"><i class="fa-solid fa-star"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ all_feedback | length }}</div>
+        <div class="kpi-label">Total Reviews</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="kpi-card kpi-teal">
+      <div class="kpi-icon"><i class="fa-solid fa-chart-simple"></i></div>
+      <div class="kpi-body">
+        {% set total_rating = namespace(val=0) %}
+        {% for f in all_feedback %}{% set total_rating.val = total_rating.val + f.rating %}{% endfor %}
+        <div class="kpi-value">
+          {% if all_feedback | length > 0 %}
+            {{ (total_rating.val / all_feedback | length) | round(1) }}
+          {% else %}—{% endif %}
+        </div>
+        <div class="kpi-label">Overall Avg Rating</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="kpi-card kpi-orange">
+      <div class="kpi-icon"><i class="fa-solid fa-location-dot"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ top_locations | length }}</div>
+        <div class="kpi-label">Top-Rated Areas</div>
+        <div class="kpi-sub">Avg rating &gt; 4.0</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Rating by Emergency Type (GROUP BY query) -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-chart-bar me-2 text-warning"></i>Avg Rating by Emergency Type</h5>
+        <p class="text-muted small mb-0">GROUP BY emergency_type with AVG, MIN, MAX aggregates</p>
+      </div>
+      <div class="panel-body p-0">
+        <div class="table-responsive">
+          <table class="table erts-table mb-0">
+            <thead>
+              <tr><th>Type</th><th>Avg Rating</th><th>Reviews</th><th>Lowest</th><th>Highest</th><th>Stars</th></tr>
+            </thead>
+            <tbody>
+              {% for r in rating_by_type %}
+              <tr>
+                <td><span class="badge-type badge-{{ r.emergency_type | lower }}">{{ r.emergency_type }}</span></td>
+                <td><strong>{{ r.avg_rating }}</strong></td>
+                <td><span class="badge bg-dark">{{ r.total_reviews }}</span></td>
+                <td class="text-danger">{{ r.lowest }}</td>
+                <td class="text-success">{{ r.highest }}</td>
+                <td>
+                  {% for i in range(1, 6) %}
+                    <i class="fa-solid fa-star {% if i <= r.avg_rating | round %}text-warning{% else %}text-secondary{% endif %} small"></i>
+                  {% endfor %}
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="6" class="text-center text-muted py-3">No feedback yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Locations (HAVING AVG > 4) -->
+  <div class="col-lg-5">
+    <div class="card-panel h-100">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-trophy me-2 text-yellow"></i>Top-Rated Locations</h5>
+        <p class="text-muted small mb-0">HAVING AVG(rating) &gt; 4</p>
+      </div>
+      <div class="panel-body p-0">
+        <div class="table-responsive">
+          <table class="table erts-table mb-0">
+            <thead>
+              <tr><th>Location</th><th>Avg</th><th>Reviews</th></tr>
+            </thead>
+            <tbody>
+              {% for loc in top_locations %}
+              <tr>
+                <td><i class="fa-solid fa-location-dot me-2 text-danger"></i>{{ loc.location }}</td>
+                <td>
+                  <span class="resp-time-badge" style="background:rgba(34,197,94,0.15);color:#22c55e">
+                    ⭐ {{ loc.avg_rating }}
+                  </span>
+                </td>
+                <td><span class="badge bg-dark">{{ loc.reviews }}</span></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="3" class="text-center text-muted py-3">No locations with avg &gt; 4 yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- All Feedback Table -->
+<div class="card-panel">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-comments me-2 text-info"></i>All Feedback
+      <span class="badge bg-info text-dark ms-2">{{ all_feedback | length }}</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr><th>#</th><th>Citizen</th><th>Request</th><th>Type</th><th>Location</th><th>Rating</th><th>Comments</th><th>Date</th></tr>
+        </thead>
+        <tbody>
+          {% for f in all_feedback %}
+          <tr>
+            <td><span class="req-id">{{ f.feedback_id }}</span></td>
+            <td>
+              <div class="citizen-info">
+                <span class="citizen-name">{{ f.citizen }}</span>
+                <span class="citizen-phone">{{ f.phone_number }}</span>
+              </div>
+            </td>
+            <td><span class="req-id">#{{ f.request_id }}</span></td>
+            <td><span class="badge-type badge-{{ f.emergency_type | lower }}">{{ f.emergency_type }}</span></td>
+            <td class="text-muted small">{{ f.location }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-1">
+                {% for i in range(1, 6) %}
+                  <i class="fa-solid fa-star {% if i <= f.rating %}text-warning{% else %}text-secondary{% endif %}" style="font-size:11px"></i>
+                {% endfor %}
+                <span class="ms-1 fw-bold">{{ f.rating }}</span>
+              </div>
+            </td>
+            <td class="text-muted small" style="max-width:200px">{{ f.comments or '—' }}</td>
+            <td class="text-muted small">{{ f.created_at.strftime('%d %b %Y') if f.created_at }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8">
+            <div class="empty-state"><i class="fa-solid fa-star fa-2x text-muted mb-2"></i><p class="text-muted">No feedback submitted yet.</p></div>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

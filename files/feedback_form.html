@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Submit Feedback — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-star me-2"></i>Submit Feedback{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card-panel">
+      <div class="panel-header">
+        <h5><i class="fa-solid fa-star me-2 text-warning"></i>Rate Your Emergency Response</h5>
+        <p class="text-muted small mb-0">Your feedback helps us improve response quality.</p>
+      </div>
+      <div class="panel-body">
+
+        <!-- Request Info -->
+        <div class="p-3 mb-4 rounded" style="background:var(--bg-elevated); border:1px solid var(--border)">
+          <div class="row g-2">
+            <div class="col-6">
+              <span class="text-muted small">Request ID</span>
+              <div class="fw-bold">#{{ req.request_id }}</div>
+            </div>
+            <div class="col-6">
+              <span class="text-muted small">Type</span>
+              <div><span class="badge-type badge-{{ req.emergency_type | lower }}">{{ req.emergency_type }}</span></div>
+            </div>
+            <div class="col-12">
+              <span class="text-muted small">Location</span>
+              <div>{{ req.location }}</div>
+            </div>
+          </div>
+        </div>
+
+        {% if existing %}
+        <div class="alert alert-info">
+          <i class="fa-solid fa-circle-check me-2"></i>You have already submitted feedback for this request.
+        </div>
+        <a href="{{ url_for('citizen_dashboard') }}" class="btn btn-outline-secondary w-100">
+          <i class="fa-solid fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+        {% else %}
+        <form method="POST">
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Rating <span class="text-danger">*</span></label>
+            <div class="d-flex gap-3 flex-wrap">
+              {% for val, lbl, color in [(1,'Poor','danger'),(2,'Fair','orange'),(3,'Average','warning'),(4,'Good','info'),(5,'Excellent','success')] %}
+              <div>
+                <input type="radio" name="rating" id="r{{ val }}" value="{{ val }}" class="d-none" required>
+                <label for="r{{ val }}" class="btn btn-outline-{{ color }} rating-btn" style="min-width:80px">
+                  <i class="fa-solid fa-star me-1"></i>{{ val }}<br>
+                  <small>{{ lbl }}</small>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label for="comments" class="form-label fw-semibold">Comments</label>
+            <textarea class="form-control" id="comments" name="comments" rows="4"
+                      placeholder="Tell us about your experience — how quickly did help arrive? Was the team professional?"></textarea>
+          </div>
+
+          <div class="d-flex gap-3">
+            <a href="{{ url_for('citizen_dashboard') }}" class="btn btn-outline-secondary flex-fill">
+              <i class="fa-solid fa-arrow-left me-2"></i>Back
+            </a>
+            <button type="submit" class="btn btn-warning flex-fill">
+              <i class="fa-solid fa-paper-plane me-2"></i>Submit Feedback
+            </button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+// Highlight selected rating button
+document.querySelectorAll('.rating-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+</script>
+{% endblock %}
+{% endblock %}

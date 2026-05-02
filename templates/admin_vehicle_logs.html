@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Vehicle Logs — ERTS{% endblock %}
+{% block page_title %}<i class="fa-solid fa-route me-2"></i>Vehicle Location Logs{% endblock %}
+
+{% block content %}
+
+<!-- Latest Position Per Vehicle -->
+<div class="card-panel mb-4">
+  <div class="panel-header">
+    <h5><i class="fa-solid fa-map-pin me-2 text-danger"></i>Latest Position — All Vehicles
+      <span class="text-muted small ms-2">(Subquery: MAX logged_at per vehicle)</span>
+    </h5>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table erts-table mb-0">
+        <thead>
+          <tr><th>Vehicle ID</th><th>Type</th><th>Plate</th><th>Latitude</th><th>Longitude</th><th>Availability</th><th>Last Logged</th></tr>
+        </thead>
+        <tbody>
+          {% for p in latest_positions %}
+          <tr>
+            <td><span class="req-id">{{ p.vehicle_id }}</span></td>
+            <td>
+              <span class="vehicle-chip-sm">
+                {% if 'Ambulance' in p.vehicle_type %}<i class="fa-solid fa-truck-medical text-info"></i>
+                {% elif 'Fire' in p.vehicle_type %}<i class="fa-solid fa-fire-extinguisher text-danger"></i>
+                {% else %}<i class="fa-solid fa-car-side text-primary"></i>{% endif %}
+                {{ p.vehicle_type }}
+              </span>
+            </td>
+            <td><code class="plate-code">{{ p.license_plate }}</code></td>
+            <td class="text-muted small">{{ p.latitude }}</td>
+            <td class="text-muted small">{{ p.longitude }}</td>
+            <td><span class="avail-badge avail-{{ p.availability | lower }}">{{ p.availability }}</span></td>
+            <td class="text-muted small">{{ p.logged_at.strftime('%d %b %H:%M:%S') if p.logged_at else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7">
+            <div class="empty-state"><i class="fa-solid fa-map fa-2x text-muted mb-2"></i><p class="text-muted">No vehicle log data available.</p></div>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Filter + Full Log -->
+<div class="card-panel">
+  <div class="panel-header d-flex justify-content-between align-items-center">
+    <h5><i class="fa-solid fa-table me-2 text-primary"></i>Full Location Log
+      <span class="badge bg-primary ms-2">{{ logs | length }}</span>
+    </h5>
+  </div>
+
+  <!-- Filter -->
+  <div class="panel-body border-bottom" style="border-color:var(--border)!important">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label">Filter by Vehicle</label>
+        <select name="vehicle_id" class="form-select">
+          <option value="">All Vehicles</option>
+          {% for v in vehicles %}
+          <option value="{{ v.vehicle_id }}" {% if vehicle_filter|string == v.vehicle_id|string %}selected{% endif %}>
+            #{{ v.vehicle_id }} — {{ v.vehicle_type }} ({{ v.license_plate }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="fa-solid fa-filter me-2"></i>Apply
+        </button>
+      </div>
+      {% if vehicle_filter %}
+      <div class="col-md-3">
+        <a href="{{ url_for('admin_vehicle_logs') }}" class="btn btn-outline-secondary w-100">
+          <i class="fa-solid fa-xmark me-1"></i>Clear
+        </a>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="panel-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover erts-table mb-0">
+        <thead>
+          <tr><th>Log ID</th><th>Vehicle</th><th>Type</th><th>Area</th><th>Latitude</th><th>Longitude</th><th>Logged At</th></tr>
+        </thead>
+        <tbody>
+          {% for l in logs %}
+          <tr>
+            <td><span class="req-id">{{ l.log_id }}</span></td>
+            <td>
+              <div>
+                <span class="fw-semibold">#{{ l.vehicle_id }}</span>
+                <br><code class="plate-code small">{{ l.license_plate }}</code>
+              </div>
+            </td>
+            <td>
+              <span class="vehicle-chip-sm">
+                {% if 'Ambulance' in l.vehicle_type %}<i class="fa-solid fa-truck-medical text-info"></i>
+                {% elif 'Fire' in l.vehicle_type %}<i class="fa-solid fa-fire-extinguisher text-danger"></i>
+                {% else %}<i class="fa-solid fa-car-side text-primary"></i>{% endif %}
+                {{ l.vehicle_type }}
+              </span>
+            </td>
+            <td class="text-muted small">{{ l.area }}</td>
+            <td class="text-muted small"><i class="fa-solid fa-location-crosshairs me-1 text-secondary"></i>{{ l.latitude }}</td>
+            <td class="text-muted small">{{ l.longitude }}</td>
+            <td class="text-muted small">{{ l.logged_at.strftime('%d %b %Y %H:%M:%S') if l.logged_at else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7">
+            <div class="empty-state"><i class="fa-solid fa-route fa-2x text-muted mb-2"></i><p class="text-muted">No log entries found.</p></div>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
