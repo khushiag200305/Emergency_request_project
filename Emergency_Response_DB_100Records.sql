@@ -8,7 +8,7 @@
 DROP DATABASE IF EXISTS Emergency_Service_DB;
 CREATE DATABASE Emergency_Service_DB;
 USE Emergency_Service_DB;
-
+SET FOREIGN_KEY_CHECKS = 0;
 
 -- ============================================================
 -- SECTION 1: TABLE CREATION (DDL)
@@ -1557,7 +1557,7 @@ START TRANSACTION;
     UPDATE Emergency_Request  SET status = 'Assigned' WHERE request_id = 89;
 
 COMMIT;
-
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
 -- END OF FILE
